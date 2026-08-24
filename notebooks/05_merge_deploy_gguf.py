@@ -28,8 +28,8 @@ from pathlib import Path
 
 COMPUTE_TIER = os.environ.get("COMPUTE_TIER", "T4").upper()
 BASE_MODEL = (
-    "unsloth/Qwen2.5-3B-bnb-4bit" if COMPUTE_TIER == "T4"
-    else "unsloth/Qwen2.5-7B-bnb-4bit"
+    "unsloth/Qwen2.5-1.5B-bnb-4bit" if COMPUTE_TIER == "T4"
+    else "unsloth/Qwen2.5-1.5B-bnb-4bit"
 )
 MAX_LEN = 512 if COMPUTE_TIER == "T4" else 1024
 
@@ -65,12 +65,15 @@ model, tokenizer = FastLanguageModel.from_pretrained(
     dtype=None,
     load_in_4bit=True,
 )
+tokenizer.chat_template = "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n{% endif %}<|im_start|>{{ message['role'] }}\n{{ message['content'] }}<|im_end|>\n{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}"
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
 # Stack SFT-mini → DPO adapters
 SFT_PATH = REPO_ROOT / "adapters" / "sft-mini"
 model = PeftModel.from_pretrained(model, str(SFT_PATH))
+model.load_adapter(str(DPO_PATH), adapter_name="dpo")
+model.set_adapter("dpo")
 print(f"Loaded SFT-mini adapter from {SFT_PATH}")
 
 # %% [markdown]

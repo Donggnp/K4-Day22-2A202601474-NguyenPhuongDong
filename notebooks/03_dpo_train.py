@@ -26,21 +26,21 @@ from pathlib import Path
 COMPUTE_TIER = os.environ.get("COMPUTE_TIER", "T4").upper()
 
 if COMPUTE_TIER == "T4":
-    BASE_MODEL = "unsloth/Qwen2.5-3B-bnb-4bit"
+    BASE_MODEL = "unsloth/Qwen2.5-1.5B-bnb-4bit"
     MAX_LEN = 512
     MAX_PROMPT_LEN = 256
-    PER_DEVICE_BATCH = 1
-    GRAD_ACCUM = 8
+    PER_DEVICE_BATCH = 2
+    GRAD_ACCUM = 4
 else:
-    BASE_MODEL = "unsloth/Qwen2.5-7B-bnb-4bit"
+    BASE_MODEL = "unsloth/Qwen2.5-1.5B-bnb-4bit"
     MAX_LEN = 1024
     MAX_PROMPT_LEN = 512
-    PER_DEVICE_BATCH = 1
+    PER_DEVICE_BATCH = 2
     GRAD_ACCUM = 4
 
 # Hyperparameters from deck §5.2 (TRL DPOTrainer implementation frame)
 BETA = float(os.environ.get("DPO_BETA", "0.1"))
-LR = float(os.environ.get("DPO_LR", "5e-7"))
+LR = float(os.environ.get("DPO_LR", "5e-5"))
 EPOCHS = int(os.environ.get("DPO_EPOCHS", "1"))
 
 REPO_ROOT = Path.cwd().parent if Path.cwd().name == "notebooks" else Path.cwd()
@@ -86,6 +86,7 @@ model, tokenizer = FastLanguageModel.from_pretrained(
     dtype=None,
     load_in_4bit=True,
 )
+tokenizer.chat_template = "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n{% endif %}<|im_start|>{{ message['role'] }}\n{{ message['content'] }}<|im_end|>\n{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}"
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
@@ -106,7 +107,7 @@ model = FastLanguageModel.get_peft_model(
         "q_proj", "k_proj", "v_proj", "o_proj",
         "gate_proj", "up_proj", "down_proj",
     ],
-    use_gradient_checkpointing="unsloth",
+    use_gradient_checkpointing=False,
     random_state=42,
     use_rslora=False,
     loftq_config=None,

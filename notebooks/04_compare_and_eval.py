@@ -25,10 +25,10 @@ from pathlib import Path
 COMPUTE_TIER = os.environ.get("COMPUTE_TIER", "T4").upper()
 
 if COMPUTE_TIER == "T4":
-    BASE_MODEL = "unsloth/Qwen2.5-3B-bnb-4bit"
+    BASE_MODEL = "unsloth/Qwen2.5-1.5B-bnb-4bit"
     MAX_LEN = 512
 else:
-    BASE_MODEL = "unsloth/Qwen2.5-7B-bnb-4bit"
+    BASE_MODEL = "unsloth/Qwen2.5-1.5B-bnb-4bit"
     MAX_LEN = 1024
 
 REPO_ROOT = Path.cwd().parent if Path.cwd().name == "notebooks" else Path.cwd()
@@ -77,10 +77,16 @@ def generate_with_adapter(adapter_path: Path, prompts: list[dict], max_new_token
         dtype=None,
         load_in_4bit=True,
     )
+    tokenizer.chat_template = "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n{% endif %}<|im_start|>{{ message['role'] }}\n{{ message['content'] }}<|im_end|>\n{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}"
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    model = PeftModel.from_pretrained(model, str(adapter_path))
+    if "dpo" in str(adapter_path):
+        model = PeftModel.from_pretrained(model, str(SFT_PATH))
+        model.load_adapter(str(adapter_path), adapter_name="dpo")
+        model.set_adapter("dpo")
+    else:
+        model = PeftModel.from_pretrained(model, str(adapter_path))
     FastLanguageModel.for_inference(model)
 
     outputs = []

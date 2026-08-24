@@ -31,11 +31,11 @@ def main():
 
     tier = os.environ.get("COMPUTE_TIER", "T4").upper()
     if tier == "T4":
-        base_model = "unsloth/Qwen2.5-3B-bnb-4bit"
+        base_model = "unsloth/Qwen2.5-1.5B-bnb-4bit"
         max_len, max_prompt = 512, 256
         batch, grad_accum = 1, 8
     else:
-        base_model = "unsloth/Qwen2.5-7B-bnb-4bit"
+        base_model = "unsloth/Qwen2.5-1.5B-bnb-4bit"
         max_len, max_prompt = 1024, 512
         batch, grad_accum = 1, 4
 
@@ -56,6 +56,7 @@ def main():
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=base_model, max_seq_length=max_len, dtype=None, load_in_4bit=True,
     )
+    tokenizer.chat_template = "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n{% endif %}<|im_start|>{{ message['role'] }}\n{{ message['content'] }}<|im_end|>\n{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}"
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
@@ -64,7 +65,7 @@ def main():
         model, r=16, lora_alpha=32, lora_dropout=0.0, bias="none",
         target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
                         "gate_proj", "up_proj", "down_proj"],
-        use_gradient_checkpointing="unsloth",
+        use_gradient_checkpointing=False,
         random_state=42, use_rslora=False, loftq_config=None,
     )
 

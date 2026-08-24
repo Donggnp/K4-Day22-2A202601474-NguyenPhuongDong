@@ -31,17 +31,17 @@ assert COMPUTE_TIER in ("T4", "BIGGPU"), f"Invalid COMPUTE_TIER: {COMPUTE_TIER}"
 
 # Tier-specific hyperparameters
 if COMPUTE_TIER == "T4":
-    BASE_MODEL = "unsloth/Qwen2.5-3B-bnb-4bit"
+    BASE_MODEL = "unsloth/Qwen2.5-1.5B-bnb-4bit"
     MAX_LEN = 512
-    PER_DEVICE_BATCH = 1
-    GRAD_ACCUM = 8
+    PER_DEVICE_BATCH = 2
+    GRAD_ACCUM = 4
 else:  # BIGGPU
-    BASE_MODEL = "unsloth/Qwen2.5-7B-bnb-4bit"
+    BASE_MODEL = "unsloth/Qwen2.5-1.5B-bnb-4bit"
     MAX_LEN = 1024
     PER_DEVICE_BATCH = 2
     GRAD_ACCUM = 4
 
-SFT_DATASET = os.environ.get("SFT_DATASET", "5CD-AI/Vietnamese-alpaca-cleaned")
+SFT_DATASET = os.environ.get("SFT_DATASET", "bkai-foundation-models/vi-alpaca")
 SFT_SLICE = 1000
 NUM_EPOCHS = 1
 
@@ -81,6 +81,7 @@ model, tokenizer = FastLanguageModel.from_pretrained(
 )
 
 # Critical for batch training — Qwen tokenizers ship without pad token.
+tokenizer.chat_template = "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n{% endif %}<|im_start|>{{ message['role'] }}\n{{ message['content'] }}<|im_end|>\n{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}"
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
     print("Set tokenizer.pad_token = eos_token")
@@ -96,7 +97,7 @@ model = FastLanguageModel.get_peft_model(
         "q_proj", "k_proj", "v_proj", "o_proj",
         "gate_proj", "up_proj", "down_proj",
     ],
-    use_gradient_checkpointing="unsloth",  # 30% VRAM savings
+    use_gradient_checkpointing=False,  # 30% VRAM savings
     random_state=42,
     use_rslora=False,
     loftq_config=None,
@@ -106,7 +107,7 @@ print(f"Trainable params: {sum(p.numel() for p in model.parameters() if p.requir
 # %% [markdown]
 # ## 2. Load + format VN Alpaca slice
 #
-# `5CD-AI/Vietnamese-alpaca-cleaned` is a 50k-row VN Alpaca translation. Lab 21
+# `bkai-foundation-models/vi-alpaca` is a 50k-row VN Alpaca translation. Lab 21
 # uses 1k slice for the demo run; we match that exactly so reward gap is comparable.
 
 # %%

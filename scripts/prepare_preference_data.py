@@ -49,6 +49,7 @@ def main():
 
     print(f"Loading tokenizer from {args.tokenizer}...")
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
+    tokenizer.chat_template = "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n{% endif %}<|im_start|>{{ message['role'] }}\n{{ message['content'] }}<|im_end|>\n{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}"
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 

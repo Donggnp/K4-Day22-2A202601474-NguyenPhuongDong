@@ -32,8 +32,8 @@ def main():
 
     tier = os.environ.get("COMPUTE_TIER", "T4").upper()
     base = (
-        "unsloth/Qwen2.5-3B-bnb-4bit" if tier == "T4"
-        else "unsloth/Qwen2.5-7B-bnb-4bit"
+        "unsloth/Qwen2.5-1.5B-bnb-4bit" if tier == "T4"
+        else "unsloth/Qwen2.5-1.5B-bnb-4bit"
     )
     max_len = 512 if tier == "T4" else 1024
 
@@ -51,10 +51,13 @@ def main():
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=base, max_seq_length=max_len, dtype=None, load_in_4bit=True,
     )
+    tokenizer.chat_template = "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n{% endif %}<|im_start|>{{ message['role'] }}\n{{ message['content'] }}<|im_end|>\n{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}"
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
     model = PeftModel.from_pretrained(model, args.sft_path)
+    model.load_adapter(args.dpo_path, adapter_name="dpo")
+    model.set_adapter("dpo")
     print("Loaded SFT-mini adapter")
 
     # Step 2: save merged FP16
